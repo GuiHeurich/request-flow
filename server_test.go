@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,10 @@ func (s *StubPlayerStore) GetPlayerScore(name string) int {
 
 func (s *StubPlayerStore) RecordWin(name string) {
 	s.winCalls = append(s.winCalls, name)
+}
+
+func (s *StubPlayerStore) GetAllPlayers() map[string]int {
+	return s.scores
 }
 
 func TestGETPlayers(t *testing.T) {
@@ -110,4 +115,77 @@ func TestStoreWins(t *testing.T) {
 func newPostWinRequest(name string) *http.Request {
 	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/players/%s", name), nil)
 	return req
+}
+
+func TestGetAllPlayers(t *testing.T) {
+	store := StubPlayerStore{
+		map[string]int{
+			"Pepper": 20,
+			"Floyd":  10,
+			"Alice":  15,
+		},
+		nil,
+	}
+	server := &PlayerServer{&store}
+
+	t.Run("returns all players as JSON", func(t *testing.T) {
+		request := newGetAllPlayersRequest()
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusOK)
+		assertContentType(t, response.Header().Get("Content-Type"), "application/json")
+
+		var got map[string]int
+		err := json.NewDecoder(response.Body).Decode(&got)
+		if err != nil {
+			t.Fatalf("unable to parse response as JSON: %v", err)
+		}
+
+		if len(got) != 3 {
+			t.Errorf("got %d players, want 3", len(got))
+		}
+
+		assertPlayerScore(t, got, "Pepper", 20)
+		assertPlayerScore(t, got, "Floyd", 10)
+		assertPlayerScore(t, got, "Alice", 15)
+	})
+}
+
+func assertPlayerScore(t testing.TB, players map[string]int, name string, want int) {
+	t.Helper()
+	got, ok := players[name]
+	if !ok {
+		t.Errorf("player %q not found in response", name)
+		return
+	}
+	if got != want {
+		t.Errorf("got score %d for %q, want %d", got, name, want)
+	}
+}
+
+func newGetAllPlayersRequest() *http.Request {
+	req, _ := http.NewRequest(http.MethodGet, "/api/players", nil)
+	return req
+}
+
+func assertContentType(t testing.TB, got, want string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("got content type %q want %q", got, want)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && stringContains(s, substr)
+}
+
+func stringContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
