@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Player Scores</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+            }
+            .flow-container {
+                width: 100%;
+                height: 600px;
+                border: 1px solid #ddd;
+                margin-top: 20px;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                max-width: 600px;
+                margin-bottom: 20px;
+            }
+            th,
+            td {
+                border: 1px solid #ddd;
+                padding: 12px;
+                text-align: left;
+            }
+            th {
+                background-color: #4caf50;
+                color: white;
+            }
+            tr:nth-child(even) {
+                background-color: #f2f2f2;
+            }
+            h1 {
+                color: #333;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Player Scores</h1>
+        <div id="table-container"></div>
+        <div id="flow-container" class="flow-container"></div>
+
+        <script type="module">
+            import ReactFlow from "https://cdn.jsdelivr.net/npm/reactflow@11.10.1/+esm";
+
+            // Fetch player data from the server
+            fetch("/api/players")
+                .then((response) => response.json())
+                .then((players) => {
+                    renderTable(players);
+                    renderFlow(players);
+                })
+                .catch((error) =>
+                    console.error("Error fetching players:", error),
+                );
+
+            function renderTable(players) {
+                let tableHTML = `
+                <table>
+                    <tr>
+                        <th>Player</th>
+                        <th>Score</th>
+                    </tr>`;
+
+                for (const [name, score] of Object.entries(players)) {
+                    tableHTML += `
+                    <tr>
+                        <td>${name}</td>
+                        <td>${score}</td>
+                    </tr>`;
+                }
+
+                tableHTML += `</table>`;
+                document.getElementById("table-container").innerHTML =
+                    tableHTML;
+            }
+
+            function renderFlow(players) {
+                const nodes = Object.entries(players).map(
+                    ([name, score], index) => ({
+                        id: name,
+                        data: { label: `${name}: ${score}` },
+                        position: {
+                            x: 100 + (index % 3) * 200,
+                            y: 100 + Math.floor(index / 3) * 100,
+                        },
+                        style: {
+                            background: "#4CAF50",
+                            color: "white",
+                            border: "1px solid #333",
+                            padding: 10,
+                            borderRadius: 5,
+                        },
+                    }),
+                );
+
+                const edges = [];
+
+                // Simple ReactFlow setup without React
+                const container = document.getElementById("flow-container");
+                container.innerHTML = `
+                <div style="width: 100%; height: 100%; position: relative;">
+                    ${nodes
+                        .map(
+                            (node) => `
+                        <div style="
+                            position: absolute;
+                            left: ${node.position.x}px;
+                            top: ${node.position.y}px;
+                            background: ${node.style.background};
+                            color: ${node.style.color};
+                            border: ${node.style.border};
+                            padding: ${node.style.padding}px;
+                            border-radius: ${node.style.borderRadius}px;
+                        ">
+                            ${node.data.label}
+                        </div>
+                    `,
+                        )
+                        .join("")}
+                </div>
+            `;
+            }
+        </script>
+    </body>
+</html>
